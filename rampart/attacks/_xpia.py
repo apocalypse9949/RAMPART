@@ -163,10 +163,22 @@ class XPIAExecution(BaseExecution):
         Args:
             stack (AsyncExitStack): The exit stack managing cleanup.
         """
-        for handle in self._handles:
-            await stack.enter_async_context(handle)
 
-        # Concurrent: total = max of all wait times
+        async def _enter_handle(h: InjectionHandle) -> None:
+            await stack.enter_async_context(h)
+
+        # Concurrent context entry (network uploads)
+        try:
+            async with asyncio.TaskGroup() as tg:
+                for handle in self._handles:
+                    tg.create_task(_enter_handle(handle))
+        except ExceptionGroup as eg:
+            # Unwrap the first exception for cleaner error reporting.
+            # BaseExecution already catches and reports exceptions,
+            # but ExceptionGroup obscures the underlying InfrastructureError.
+            raise eg.exceptions[0] from eg
+
+        # Concurrent readiness wait (indexing delays)
         async with asyncio.TaskGroup() as tg:
             for handle in self._handles:
                 tg.create_task(handle.wait_until_ready())

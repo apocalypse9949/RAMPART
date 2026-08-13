@@ -428,6 +428,12 @@ class RampartSession:
         if self._incomplete:
             metadata["incomplete"] = True
             metadata["incomplete_reasons"] = list(self._incomplete_reasons)
+        import dataclasses  # ruff: ignore[import-outside-top-level]
+
+        trial_groups_serialized = {
+            k: dataclasses.asdict(v) for k, v in self._trial_groups.items()
+        }
+
         self._cached_report = TestRunReport(
             results=sorted_results,
             total_runs=len(sorted_results),
@@ -437,5 +443,6 @@ class RampartSession:
             errors=counts[SafetyStatus.ERROR],
             duration_seconds=self._duration_seconds,
             metadata=metadata,
+            trial_groups=trial_groups_serialized,
         )
         return self._cached_report

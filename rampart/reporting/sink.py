@@ -59,6 +59,8 @@ class TestRunReport:
         errors (int): Number with infrastructure errors.
         duration_seconds (float): Total run duration.
         metadata (dict[str, Any]): Run-level metadata (CI job ID, commit hash, etc.).
+        trial_groups (dict[str, Any]): Aggregated trial statistics for tests
+            marked with @pytest.mark.trial.
     """
 
     __test__ = False  # Prevent pytest from collecting this dataclass as a test.
@@ -71,6 +73,7 @@ class TestRunReport:
     errors: int = 0
     duration_seconds: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict[str, Any])
+    trial_groups: dict[str, Any] = field(default_factory=dict)
 
     def by_harm_category(self) -> dict[str, list[Result]]:
         """Group results by harm category.
