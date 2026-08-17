@@ -163,8 +163,12 @@ class XPIAExecution(BaseExecution):
         Args:
             stack (AsyncExitStack): The exit stack managing cleanup.
         """
-        for handle in self._handles:
-            await stack.enter_async_context(handle)
+        try:
+            async with asyncio.TaskGroup() as tg:
+                for handle in self._handles:
+                    tg.create_task(stack.enter_async_context(handle))
+        except ExceptionGroup as eg:
+            raise eg.exceptions[0] from eg
 
         # Concurrent: total = max of all wait times
         async with asyncio.TaskGroup() as tg:

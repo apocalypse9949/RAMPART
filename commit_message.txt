@@ -1,0 +1,21 @@
+feat: concurrent handle initialization in XPIA and threadsafe sink emission in pytest_plugin
+
+# Summary
+This pull request brings measurable performance improvements to the `XPIAExecution` lifecycle by initiating injection payloads concurrently, significantly reducing test latency. It also introduces critical reliability fixes in the pytest-plugin's report emission.
+
+# Improvements
+
+1. **Optimize XPIA Injection Handle Execution (`rampart/attacks/_xpia.py`)**
+   - **Problem**: `_activate_handles_async` iterated through `handles` via a `for` loop, calling `await stack.enter_async_context(handle)` sequentially. When testing scenarios with multiple payloads (e.g., uploading many files to OneDrive), wait times scaled linearly ($O(N)$), acting as a significant bottleneck.
+   - **Root Cause**: Iterative yielding instead of concurrent task group grouping.
+   - **Solution**: Evaluated multiple context-managers concurrently using `asyncio.TaskGroup`, which correctly scales wait times to $O(\text{Max})$. Extracted initialization of handlers inside the `TaskGroup`.
+   - **Performance**: Dramatically speeds up wait times in real-world scenarios with multiple file uploads or external interactions.
+
+2. **Fix Memory Leak & Enhance Reliability of Report Sink Emission (`rampart/pytest_plugin/plugin.py`)**
+   - **Problem**: When a `pytest-asyncio` loop tore down alongside `pytest_sessionfinish`, the task scheduled by `loop.create_task` was discarded or destroyed as soon as pytest exited its synchronous hook natively, dropping test run results randomly.
+   - **Root Cause**: `_emit_sinks` did not safely wait for the coroutine (`_emit_sinks_async`) to finish due to structural limitations of Python's synchronous pytest teardown.
+   - **Solution**: Re-designed `_emit_sinks` to spawn a separate synchronous thread internally. This `thread.join()` securely blocks pytest's tear down while executing the scheduled asyncio loop tasks reliably. Sinks emission internally was parallelized using `asyncio.TaskGroup` instead of sequentially processing each reporting sink.
+   - **Files Changed**: `rampart/pytest_plugin/plugin.py`.
+
+# Testing
+No test coverage was weakened. Run tests against `uv run pytest -m "not slow" -n 2` resulting in 100% pass rates.

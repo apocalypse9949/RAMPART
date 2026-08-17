@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import time
 from typing import TYPE_CHECKING, Any, cast
 
@@ -836,7 +837,8 @@ async def _emit_sinks_async(*, rampart_session: RampartSession) -> None:
         return
 
     report = rampart_session.build_report()
-    for sink in rampart_session.sinks:
+
+    async def _emit(sink: ReportSink) -> None:
         try:
             await sink.emit_async(report=report)
         except Exception:
@@ -846,8 +848,9 @@ async def _emit_sinks_async(*, rampart_session: RampartSession) -> None:
                 exc_info=True,
             )
 
-
-_background_tasks: set[asyncio.Task[Any]] = set()
+    async with asyncio.TaskGroup() as tg:
+        for sink in rampart_session.sinks:
+            tg.create_task(_emit(sink))
 
 
 def _emit_sinks(*, rampart_session: RampartSession) -> None:
@@ -872,15 +875,21 @@ def _emit_sinks(*, rampart_session: RampartSession) -> None:
     rampart_session.mark_emitted()
     coro = _emit_sinks_async(rampart_session=rampart_session)
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
     except RuntimeError:
         # No event loop running — start one.
         asyncio.run(coro)
     else:
-        # Event loop is already running — schedule the coroutine.
-        task = loop.create_task(coro)
-        _background_tasks.add(task)
-        task.add_done_callback(_background_tasks.discard)
+        # Event loop is already running — we cannot block it via asyncio.run(),
+        # and since this is a synchronous pytest hook, scheduling it as a task
+        # may lead to it being cancelled when the test suite tears down the loop.
+        # Running it in a new thread blocks pytest teardown until sinks finish.
+        def _run_sync() -> None:
+            asyncio.run(coro)
+
+        thread = threading.Thread(target=_run_sync)
+        thread.start()
+        thread.join()
 
 
 def _write_result_line(
