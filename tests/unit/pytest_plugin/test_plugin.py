@@ -851,17 +851,19 @@ class TestEvaluateGates:
 
 
 class MockAsyncSink(ReportSink):
-    def __init__(self, delay=0.1, error=None):
+    def __init__(self, delay: float = 0.1, error: Exception | None = None) -> None:
         self.delay = delay
         self.error = error
         self.emitted = False
 
     async def emit_async(self, *, report) -> None:
         import asyncio
+
         await asyncio.sleep(self.delay)
         if self.error:
             raise self.error
         self.emitted = True
+
 
 class TestEmitSinks:
     """Sink emission calls emit_async and handles errors."""
@@ -895,7 +897,7 @@ class TestEmitSinks:
 
     @pytest.mark.asyncio
     async def test_emit_sinks_existing_loop(self) -> None:
-        """Verify _emit_sinks successfully waits for _emit_sinks_async to finish when a loop is active."""
+        """Verify _emit_sinks waits for _emit_sinks_async."""
         sink = MockAsyncSink(delay=0.1)
         session = RampartSession(sinks=[sink])
 
@@ -926,12 +928,12 @@ class TestEmitSinks:
     @pytest.mark.asyncio
     async def test_emit_sinks_multiple_sinks(self) -> None:
         """Verify all sinks complete before _emit_sinks returns."""
-        sinks = [MockAsyncSink(delay=0.1) for _ in range(3)]
+        sinks: list[ReportSink] = [MockAsyncSink(delay=0.1) for _ in range(3)]
         session = RampartSession(sinks=sinks)
 
         _emit_sinks(rampart_session=session)
 
-        assert all(sink.emitted for sink in sinks)
+        assert all(cast("MockAsyncSink", sink).emitted for sink in sinks)
 
 
 class TestSessionFinishIntegration:

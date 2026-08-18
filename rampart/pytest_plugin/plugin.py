@@ -21,6 +21,7 @@ a documented deviation from the architecture.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import logging
 import time
 from typing import TYPE_CHECKING, Any, cast
@@ -848,8 +849,8 @@ async def _emit_sinks_async(*, rampart_session: RampartSession) -> None:
 
 
 def _run_emit_in_new_loop(rampart_session: RampartSession) -> None:
-    import asyncio
     asyncio.run(_emit_sinks_async(rampart_session=rampart_session))
+
 
 def _emit_sinks(*, rampart_session: RampartSession) -> None:
     """Synchronous wrapper for sink emission.
@@ -879,10 +880,11 @@ def _emit_sinks(*, rampart_session: RampartSession) -> None:
         # No event loop running — start one.
         asyncio.run(_emit_sinks_async(rampart_session=rampart_session))
     else:
-        # Event loop is already running. We must not block on it using run_until_complete,
-        # but scheduling a task in the background and letting pytest exit will cancel it.
+        # Event loop is already running. We must not block on it using
+        # run_until_complete,
+        # but scheduling a task in the background and letting pytest exit
+        # will cancel it.
         # So we run the async code synchronously in a new thread.
-        import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor(1) as executor:
             future = executor.submit(_run_emit_in_new_loop, rampart_session)
             future.result()
