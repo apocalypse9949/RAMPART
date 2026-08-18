@@ -235,7 +235,6 @@ class TestReportMetadata:
                 "worker_count": 4,
                 "dist_mode": "loadgroup",
             },
-            trial_groups={"trial_1": {"total": 5, "safe": 5}},
         )
 
         data = sink._serialize_report(report)
@@ -245,7 +244,6 @@ class TestReportMetadata:
             "worker_count": 4,
             "dist_mode": "loadgroup",
         }
-        assert data["trial_groups"] == {"trial_1": {"total": 5, "safe": 5}}
 
     def test_incomplete_run_metadata_appears_in_serialized_output(self) -> None:
         sink = JsonFileReportSink(output_dir=Path("/tmp"))
