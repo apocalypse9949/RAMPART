@@ -850,6 +850,19 @@ class TestEvaluateGates:
         _evaluate_gates(rampart_session=session)
 
 
+class MockAsyncSink(ReportSink):
+    def __init__(self, delay=0.1, error=None):
+        self.delay = delay
+        self.error = error
+        self.emitted = False
+
+    async def emit_async(self, *, report) -> None:
+        import asyncio
+        await asyncio.sleep(self.delay)
+        if self.error:
+            raise self.error
+        self.emitted = True
+
 class TestEmitSinks:
     """Sink emission calls emit_async and handles errors."""
 
@@ -871,6 +884,54 @@ class TestEmitSinks:
         session.absorb(node=node, collector=collector)
         # Should not raise
         _emit_sinks(rampart_session=session)
+
+    def test_emit_sinks_no_loop(self) -> None:
+        """Verify sinks execute and complete normally when no event loop is running."""
+        sink = MockAsyncSink(delay=0.1)
+        session = RampartSession(sinks=[sink])
+
+        _emit_sinks(rampart_session=session)
+        assert sink.emitted
+
+    @pytest.mark.asyncio
+    async def test_emit_sinks_existing_loop(self) -> None:
+        """Verify _emit_sinks successfully waits for _emit_sinks_async to finish when a loop is active."""
+        sink = MockAsyncSink(delay=0.1)
+        session = RampartSession(sinks=[sink])
+
+        _emit_sinks(rampart_session=session)
+        assert sink.emitted
+
+    @pytest.mark.asyncio
+    async def test_emit_sinks_slow_async_sink(self) -> None:
+        """Verify _emit_sinks blocks for slow sinks."""
+        sink = MockAsyncSink(delay=0.5)
+        session = RampartSession(sinks=[sink])
+
+        _emit_sinks(rampart_session=session)
+        assert sink.emitted
+
+    @pytest.mark.asyncio
+    async def test_emit_sinks_failure_swallowed(self) -> None:
+        """Verify exceptions in sinks are swallowed and don't stop other sinks."""
+        failing_sink = MockAsyncSink(delay=0.1, error=RuntimeError("sink failed"))
+        successful_sink = MockAsyncSink(delay=0.1)
+
+        session = RampartSession(sinks=[failing_sink, successful_sink])
+        _emit_sinks(rampart_session=session)
+
+        assert failing_sink.emitted is False
+        assert successful_sink.emitted is True
+
+    @pytest.mark.asyncio
+    async def test_emit_sinks_multiple_sinks(self) -> None:
+        """Verify all sinks complete before _emit_sinks returns."""
+        sinks = [MockAsyncSink(delay=0.1) for _ in range(3)]
+        session = RampartSession(sinks=sinks)
+
+        _emit_sinks(rampart_session=session)
+
+        assert all(sink.emitted for sink in sinks)
 
 
 class TestSessionFinishIntegration:

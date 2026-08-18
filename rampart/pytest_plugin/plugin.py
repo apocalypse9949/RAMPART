@@ -847,15 +847,18 @@ async def _emit_sinks_async(*, rampart_session: RampartSession) -> None:
             )
 
 
-_background_tasks: set[asyncio.Task[Any]] = set()
-
+def _run_emit_in_new_loop(rampart_session: RampartSession) -> None:
+    import asyncio
+    asyncio.run(_emit_sinks_async(rampart_session=rampart_session))
 
 def _emit_sinks(*, rampart_session: RampartSession) -> None:
     """Synchronous wrapper for sink emission.
 
-    Used by ``pytest_sessionfinish`` when no event loop is running.
-    When an event loop is already running (e.g. pytest-asyncio),
-    falls back to scheduling on the existing loop.
+    Used by ``pytest_sessionfinish``. When no event loop is running,
+    creates one using ``asyncio.run()``. When an event loop is already
+    running (e.g. via pytest-asyncio), spawns a thread to run the
+    async sinks synchronously, preventing the active loop from being
+    closed before the background emission completes.
 
     Idempotent — subsequent invocations are no-ops, guarding against
     re-emission in nested hook scenarios.
@@ -870,17 +873,19 @@ def _emit_sinks(*, rampart_session: RampartSession) -> None:
         return
 
     rampart_session.mark_emitted()
-    coro = _emit_sinks_async(rampart_session=rampart_session)
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
     except RuntimeError:
         # No event loop running — start one.
-        asyncio.run(coro)
+        asyncio.run(_emit_sinks_async(rampart_session=rampart_session))
     else:
-        # Event loop is already running — schedule the coroutine.
-        task = loop.create_task(coro)
-        _background_tasks.add(task)
-        task.add_done_callback(_background_tasks.discard)
+        # Event loop is already running. We must not block on it using run_until_complete,
+        # but scheduling a task in the background and letting pytest exit will cancel it.
+        # So we run the async code synchronously in a new thread.
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(1) as executor:
+            future = executor.submit(_run_emit_in_new_loop, rampart_session)
+            future.result()
 
 
 def _write_result_line(
