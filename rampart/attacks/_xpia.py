@@ -184,7 +184,7 @@ class XPIAExecution(BaseExecution):
         # Concurrent readiness wait (indexing delays)
         async with asyncio.TaskGroup() as tg:
             for handle in self._handles:
-                tg.create_task(handle.wait_until_ready())
+                tg.create_task(handle.wait_until_ready_async())
 
     def _build_attack_result(
         self,
