@@ -6,6 +6,7 @@
 Re-exports: ToolCalled, ResponseContains, SideEffectOccurred, LLMJudge.
 """
 
+from rampart.evaluators.cache import CachedEvaluator
 from rampart.evaluators.llm_judge import (
     LLMJudge,
     TranscriptScope,
@@ -17,6 +18,7 @@ from rampart.evaluators.tool_called import ToolCalled
 
 __all__ = [
     "NEUTRAL_EVALUATOR",
+    "CachedEvaluator",
     "LLMJudge",
     "ResponseContains",
     "SideEffectOccurred",
