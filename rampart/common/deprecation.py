@@ -17,6 +17,7 @@ def emit_deprecation_warning(
     old_item: type | Callable[..., Any] | str,
     new_item: type | Callable[..., Any] | str,
     removed_in: str,
+    stacklevel: int = 3,
 ) -> None:
     """Emit a ``DeprecationWarning`` from a deprecated item to its replacement.
 
@@ -26,6 +27,7 @@ def emit_deprecation_warning(
         new_item (type | Callable[..., Any] | str): The replacement class,
             function, or its string name.
         removed_in (str): The release in which ``old_item`` will be removed.
+        stacklevel (int): Number of stack frames to go up to locate the warning caller.
     """
     old_name = _qualified_name(item=old_item)
     new_name = _qualified_name(item=new_item)
@@ -33,7 +35,7 @@ def emit_deprecation_warning(
         f"{old_name} is deprecated and will be removed in {removed_in}. "
         f"Use {new_name} instead.",
         DeprecationWarning,
-        stacklevel=3,
+        stacklevel=stacklevel,
     )
 
 

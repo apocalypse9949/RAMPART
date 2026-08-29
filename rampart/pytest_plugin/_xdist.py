@@ -1340,6 +1340,7 @@ def _resolve_sink_candidate(
                 old_item="The rampart_sinks fixture",
                 new_item="the pytest_rampart_sinks hook",
                 removed_in="0.3.0",
+                stacklevel=4,
             )
     if func is None:
         logger.warning(
