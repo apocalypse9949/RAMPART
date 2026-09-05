@@ -36,7 +36,7 @@ class TestPatternEvaluator:
         result = await evaluator.evaluate_async(context=context)
 
         assert result.outcome == EvalOutcome.DETECTED
-        assert result.confidence == 1.0
+        assert result.confidence == pytest.approx(1.0)
         assert r"\b\d{3}-\d{2}-\d{4}\b" in result.rationale
         assert result.evidence == ["123-45-6789"]
 
@@ -56,7 +56,7 @@ class TestPatternEvaluator:
         result = await evaluator.evaluate_async(context=context)
 
         assert result.outcome == EvalOutcome.NOT_DETECTED
-        assert result.confidence == 1.0
+        assert result.confidence == pytest.approx(1.0)
         assert not result.evidence
 
     @pytest.mark.asyncio
@@ -105,12 +105,12 @@ class TestPatternEvaluator:
         assert result.outcome == EvalOutcome.NOT_DETECTED
 
     def test_rejects_empty_objective(self) -> None:
-        with pytest.raises(ValueError, match="objective.*non-empty"):
+        with pytest.raises(ValueError, match=r"objective.*non-empty"):
             PatternEvaluator(pattern="foo", objective="")
 
-        with pytest.raises(ValueError, match="objective.*non-empty"):
+        with pytest.raises(ValueError, match=r"objective.*non-empty"):
             PatternEvaluator(pattern="foo", objective="   ")
 
     def test_rejects_empty_pattern_string(self) -> None:
-        with pytest.raises(ValueError, match="pattern.*empty"):
+        with pytest.raises(ValueError, match=r"pattern.*empty"):
             PatternEvaluator(pattern="", objective="empty")
