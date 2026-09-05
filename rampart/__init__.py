@@ -42,7 +42,7 @@ from rampart.core.types import (
     Turn,
 )
 from rampart.drivers.llm import LLMDriver
-from rampart.evaluators import LLMJudge, TranscriptScope
+from rampart.evaluators import LLMJudge, PatternEvaluator, TranscriptScope
 from rampart.probes import Probes
 from rampart.pytest_plugin._collection import record_result
 
@@ -69,6 +69,7 @@ __all__ = [
     "LLMDriver",
     "LLMJudge",
     "ObservabilityLevel",
+    "PatternEvaluator",
     "Payload",
     "PayloadFormat",
     "Persona",
