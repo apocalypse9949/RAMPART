@@ -972,7 +972,10 @@ class TestSinkDiscovery:
         )
         config = MagicMock()
         config.pluginmanager.get_plugins.return_value = [plugin]
-        result = discover_sinks_from_conftest(config=config)
+        with pytest.warns(
+            DeprecationWarning, match="rampart_sinks fixture is deprecated"
+        ):
+            result = discover_sinks_from_conftest(config=config)
         assert sink in result
 
     def test_warns_and_skips_fixture_with_dependencies(
@@ -990,7 +993,12 @@ class TestSinkDiscovery:
         )
         config = MagicMock()
         config.pluginmanager.get_plugins.return_value = [plugin]
-        with caplog.at_level(logging.WARNING):
+        with (
+            caplog.at_level(logging.WARNING),
+            pytest.warns(
+                DeprecationWarning, match="rampart_sinks fixture is deprecated"
+            ),
+        ):
             result = discover_sinks_from_conftest(config=config)
         assert result == []
         assert any("requires arguments" in r.getMessage() for r in caplog.records)
